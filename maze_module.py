@@ -88,6 +88,28 @@ def make_path (arr, n, start, end): # n = dlugosc sciezki
             que.pop(0)
         return -1
         '''
+
+    def big_dist(curr, arr, bigused): #new - lets make end an array - for one element no changes, for more doing all in one BFS
+
+        def travel(pos, n):        
+            if pos in local_used: return 0
+            if pos in bigused: return 0          
+
+            if pos[0] < 0 or pos[0] >= len(arr) or pos[1] < 0 or pos[1] >= len(arr[0]): return 0
+            local_used.add(pos)
+            targets = [(pos[0]+1,pos[1]),(pos[0]-1,pos[1]),(pos[0],pos[1]+1),(pos[0],pos[1]-1)]
+            for item in targets:
+                if item not in local_used and item not in bigused: que.append((item[0],item[1],n+1))
+            return n
+
+        local_used = set([curr])
+        arr[curr[0]][curr[1]] = 0
+        que = [(curr[0],curr[1]+1,1), (curr[0],curr[1]-1,1), (curr[0]+1,curr[1],1), (curr[0]-1,curr[1],1)]
+        while que:
+            x = travel((que[0][0],que[0][1]),que[0][2])
+            if x: arr[que[0][0]][que[0][1]] = x
+            que.pop(0)
+        return arr
             
     
     #import copy
@@ -103,34 +125,50 @@ def make_path (arr, n, start, end): # n = dlugosc sciezki
     '''
 
     used = set([start])
-    #print("get_dist test 1: ", get_dist((0,0), [(11,11)], used))
-    #print("get_dist test 2: ", get_dist((0,0), [](21,11)], used))
-    #print("get_dist test 3: ", get_dist((0,0), [(11,21)], used))
-    #print("get_dist test 4: ", get_dist(start, [end], set()))
 
     path = [start]
     pathZ = []
     curr = start
     currlen = 0
+    distances = big_dist(end, [[-1 for _ in arr[0]] for x in arr], used)
+    #backup = [copy.deepcopy(path), copy.deepcopy(pathZ)]
     while path[-1] != end:
-        #currdist = get_dist(curr,end,used)
-        targets = [[curr[0],curr[1]+1,-1, "R"], [curr[0],curr[1]-1,-1, "L"], [curr[0]+1,curr[1],-1, "D"], [curr[0]-1,curr[1],-1, "U"]]
-        #for item in targets:
-        #    if tuple([item[0],item[1]]) not in used and 0 <= item[0] <= len(arr) and 0 <= item[1] <= len(arr[0]): item[2] = get_dist((item[0],item[1]),end, used)      
+        targets = [[curr[0],curr[1]+1,-1, "R"], [curr[0],curr[1]-1,-1, "L"], [curr[0]+1,curr[1],-1, "D"], [curr[0]-1,curr[1],-1, "U"]]     
         ii = 0
         while ii < len(targets):
             if tuple([targets[ii][0],targets[ii][1]]) in used or 0 > targets[ii][0] or targets[ii][0] >= len(arr) or 0 > targets[ii][1] or targets[ii][1] >= len(arr[0]): targets.pop(ii)
             else: ii +=1
-        targets = get_dist(end,targets,used)
-        #teraz mamy 4 targety i dla kazdego policzony distance do konca jesli go wybierzemy, jesli target invalid dist = -1
-        #time to make a decision, random with % chance shifting depending on distance #sweet
-        targets.sort(key=lambda x: x[2], reverse = True)
-        #print("targets: ", targets)     
+        
+        reinit = 0
+        if len(targets)==2:
+            if targets[0][0] != targets[1][0] and targets[0][1] != targets[1][1]:
+                if [3*curr[0]-targets[0][0]-targets[1][0],3*curr[1]-targets[0][1]-targets[1][1]]: reinit = 1
+            else: reinit = 1
+        if len(targets)==3 and len(pathZ)>0:
+            if pathZ[-1] == "U" and ((curr[0]-1,curr[1]+1) in used or (curr[0]-1,curr[1]-1) in used): reinit = 1
+            if pathZ[-1] == "D" and ((curr[0]+1,curr[1]+1) in used or (curr[0]+1,curr[1]-1) in used): reinit = 1
+            if pathZ[-1] == "R" and ((curr[0]+1,curr[1]+1) in used or (curr[0]-1,curr[1]+1) in used): reinit = 1
+            if pathZ[-1] == "L" and ((curr[0]+1,curr[1]-1) in used or (curr[0]-1,curr[1]-1) in used): reinit = 1
+        if reinit: distances = big_dist(end, [[-1 for _ in arr[0]] for x in arr], used)
+        
+        
+        for j in range(len(targets)):
+            targets[j][2] = distances[targets[j][0]][targets[j][1]] #new
+        
+        #targets = get_dist(end,targets,used) #tutaj trzeba zmieniæ ¿eby nie robi³ dist za ka¿dym razem, mo¿e najpiew rzedziej a potem czêœciej?
+        targets.sort(key=lambda x: x[2], reverse = True)  
         while targets[-1][2] == -1:
             targets.pop(-1)
-            if not targets:
-                print("error while making the path, no viable targets")
-                return
+        if not targets:
+            #path,pathZ = backup[0], backup[1]
+            #path,pathZ,used = copy.deepcopy(backup[0]), copy.deepcopy(backup[1]),  copy.deepcopy(backup[2])
+            #currlen = len(path)
+            #distances = big_dist(end, [[-1 for _ in arr[0]] for x in arr], used)
+            #path,pathZ = copy.deepcopy(backup[0]), copy.deepcopy(backup[1])
+            #currlen = len(path)
+            print("error: na valid targets")
+            continue
+                
         
         #if (currlen + currdist)/n >= 1: selection = targets[-1]
         #if (currlen + currdist)/n >= 1:
@@ -156,23 +194,7 @@ def make_path (arr, n, start, end): # n = dlugosc sciezki
 
         dice = randint(0,len(targets)-1)
         selection = targets[dice]
-        '''
-        if dice < currlen/n*0.8 or (currlen + currdist)/n >= 1.2:
-            while targets[0][2] > targets[-1][2]: targets.pop(0)
-            dice = randint(0,len(targets)-1)
-            #if targets[dice] == end and currlen < n: dice -=1
-            selection = targets[dice]
-        else:
-            dice = randint(0,len(targets)-1)
-            if targets[dice] == end: dice -=1
-            selection = targets[dice]
-        '''
-           
-        '''
-            dice = randint(0,100)/100 # targets: avoid long straight lines and going away >> random >> in
-            if dice > (currlen + currdist)/n/2: selection = targets[0] #tutaj mozna jakos parametryzowac, ewentualnie zmienic zeby nie wybieral tylko pierwszy lub ostatni
-            else: selection = targets[-1]
-        '''
+
         curr = (selection[0],selection[1])
         path.append(curr)
         if path[-2][0] == path[-1][0]:
@@ -180,17 +202,29 @@ def make_path (arr, n, start, end): # n = dlugosc sciezki
         else:
             pathZ.append("D") if path[-2][0] < path[-1][0] else pathZ.append("U")
 
-        '''
-        if path[-2][0] == path[-1][0]:
-            if path[-2][1] < path[-1][1]: pathZ.append("U")
-            else: pathZ.append("D")
-        else:
-            if path[-2][0] < path[-1][0]: pathZ.append("L")
-            else: pathZ.append("R")
-        '''
-
         currlen +=1
         used.add(curr)
+        
+        '''
+        if currlen%max((n//10),1) == 0:
+            distances = big_dist(end, [[-1 for _ in arr[0]] for x in arr], used)
+            if distances[path[-1][0]][path[-1][1]] != -1:
+                backup = [copy.deepcopy(path), copy.deepcopy(pathZ), copy.deepcopy(used)]
+            else:
+                path,pathZ,used = copy.deepcopy(backup[0]), copy.deepcopy(backup[1]),  copy.deepcopy(backup[2])
+                currlen = len(path)
+                distances = big_dist(end, [[-1 for _ in arr[0]] for x in arr], used)
+                print("going back to backup2")
+                continue
+        '''
+
+
+            
+
+        
+
+
+
         #print(path)
 
 
@@ -245,8 +279,8 @@ def branching(arr, path, factor): #factor = how often on average is new branchin
     while que:
         develop(que[0][0], que[0][1])
         que.pop(0)
-    #print("before todo:")
-    #print_maze (maze, 1)
+    print("before todo:")
+    print_maze (arr, 1)
     #print_maze (maze, 0)
 
     todo = []
@@ -286,6 +320,8 @@ def get_maze(sizex):
     #print(start,end)
     st = time.time()
     path = make_path(maze, int(sizex[0]*sizex[1]/5),start,end)
+    et = time.time()
+    eltime1 = et-st
 
     for i,item in enumerate(path[:-1]):
         x = maze[path[i][0]][path[i][1]]
@@ -301,6 +337,7 @@ def get_maze(sizex):
     branching(maze,path,int(log(sizex[0]*sizex[1],4)))
     et = time.time()
     eltime2 = et-st
+    print('\n Time of path making:', eltime1, 'seconds\n')
     print('\n Execution time:', eltime2, 'seconds\n')
     return maze
 
@@ -321,6 +358,7 @@ def print_menu():
 from math import log
 from random import randint
 import time
+import copy
 '''
 print("default size: 10x10")
 sizex = (10,10)
